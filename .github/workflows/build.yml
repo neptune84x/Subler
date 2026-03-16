@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-13
 
     steps:
       - name: Checkout Subler
@@ -22,34 +22,32 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Build MP42Foundation
+      - name: Create Workspace
+        run: |
+          cat > Subler.xcworkspace <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <Workspace
+             version = "1.0">
+             <FileRef
+                location = "group:Subler.xcodeproj">
+             </FileRef>
+             <FileRef
+                location = "group:MP42Foundation/MP42Foundation.xcodeproj">
+             </FileRef>
+          </Workspace>
+          EOF
+
+      - name: Build
         run: |
           xcodebuild \
-          -project MP42Foundation/MP42Foundation.xcodeproj \
-          -scheme MP42Foundation \
-          -configuration Release \
-          -destination 'platform=macOS,arch=x86_64' \
-          ARCHS=x86_64 \
-          ONLY_ACTIVE_ARCH=YES \
-          CODE_SIGN_IDENTITY="" \
-          CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGNING_ALLOWED=NO \
-          -derivedDataPath build
-
-      - name: Copy Framework
-        run: |
-          mkdir -p Frameworks
-          cp -R build/Build/Products/Release/MP42Foundation.framework Frameworks/
-
-      - name: Build Subler
-        run: |
-          xcodebuild \
-          -project Subler.xcodeproj \
+          -workspace Subler.xcworkspace \
           -scheme Subler \
           -configuration Release \
           -destination 'platform=macOS,arch=x86_64' \
           ARCHS=x86_64 \
           ONLY_ACTIVE_ARCH=YES \
+          BUILD_LIBRARY_FOR_DISTRIBUTION=NO \
+          SWIFT_STRICT_CONCURRENCY=off \
           CODE_SIGN_IDENTITY="" \
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGNING_ALLOWED=NO \
