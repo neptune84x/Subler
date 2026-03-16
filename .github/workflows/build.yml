@@ -23,24 +23,33 @@ jobs:
         fi
 
         # 2. Yerel bir Homebrew tap'i oluştur
-        # Bu işlem Homebrew'un dışarıdan dosya kabul etmeme engelini aşar
         brew tap-new local/gpac
         
-        # 3. GPAC 2.4 formülünü bu tap'in içine indir
+        # 3. GPAC 2.4 formülünü doğru URL üzerinden indir (404 hatasını önlemek için)
+        # Not: Eski commitlerde formüller 'Formula/g/' altında değil, doğrudan 'Formula/' altındaydı.
         FORMULA_PATH=$(brew --repository local/gpac)/Formula/gpac.rb
         mkdir -p $(dirname $FORMULA_PATH)
-        curl -L https://raw.githubusercontent.com/Homebrew/homebrew-core/0a3b04c0d028a0503f0b2f671e6205738870313c/Formula/g/gpac.rb -o $FORMULA_PATH
+        curl -L https://raw.githubusercontent.com/Homebrew/homebrew-core/0a3b04c0d028a0503f0b2f671e6205738870313c/Formula/gpac.rb -o $FORMULA_PATH
         
-        # 4. Yeni oluşturduğumuz yerel tap üzerinden kurulumu yap
+        # 4. Dosyanın boş veya 404 olmadığını doğrula
+        if grep -q "404: Not Found" "$FORMULA_PATH"; then
+          echo "HATA: Formül dosyası indirilemedi (404). URL kontrol edilmeli."
+          exit 1
+        fi
+        
+        # 5. Bağımlılıkları önceden kur (derleme hızını artırır ve hataları önler)
+        brew install ffmpeg
+
+        # 6. Yeni oluşturduğumuz yerel tap üzerinden kurulumu yap
         brew install local/gpac/gpac
         
-        # 5. Sürümü sabitle ve doğrula
+        # 7. Sürümü sabitle ve doğrula
         brew pin gpac
         MP4Box -version
 
     - name: Build Subler with Ad-Hoc Signing
       run: |
-        # Apple Silicon mimarisinde Ad-Hoc imzalama ile derleme
+        # Apple Silicon için Ad-Hoc imzalama ile derleme
         xcodebuild clean build \
           -project Subler.xcodeproj \
           -scheme Subler \
