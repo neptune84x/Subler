@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14 # Hatalı olan 'runs-runs-on' ifadesi düzeltildi
+    runs-on: macos-14
 
     steps:
     - name: Checkout Repository
@@ -60,14 +60,12 @@ jobs:
         brew pin gpac
         MP4Box -version
 
-    - name: Fix Swift 6 Retroactive Attribute for Xcode 15.4
+    - name: Fix Swift 6 Retroactive Attributes Globally
       run: |
-        # Xcode 15.4 (Swift 5.10) uyumluluğu için @retroactive temizliği
-        FILE_PATH="MP42Foundation/MP42/SampleDescription.swift"
-        if [ -f "$FILE_PATH" ]; then
-          echo "Düzeltiliyor: $FILE_PATH"
-          sed -i '' 's/@retroactive //g' "$FILE_PATH"
-        fi
+        # Xcode 15.4'ün tanımadığı @retroactive ifadesini TÜM projeden temizler
+        # Hem ana projede hem de MP42Foundation submodule içindeki hataları çözer
+        echo "Swift dosyaları taranıyor ve @retroactive ifadeleri temizleniyor..."
+        find . -name "*.swift" -exec sed -i '' 's/@retroactive //g' {} +
 
     - name: Build Subler with Ad-Hoc Signing
       run: |
@@ -86,7 +84,12 @@ jobs:
       run: |
         cd build/Release
         # Uygulamayı zip olarak paketle
-        ditto -c -k --sequesterRsrc --keepParent Subler.app Subler-Custom-Build.zip
+        if [ -d "Subler.app" ]; then
+          ditto -c -k --sequesterRsrc --keepParent Subler.app Subler-Custom-Build.zip
+        else
+          echo "Hata: Subler.app bulunamadı!"
+          exit 1
+        fi
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
