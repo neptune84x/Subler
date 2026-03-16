@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-runs-on: macos-14 # Xcode 15.4 ve Apple Silicon için ideal
 
     steps:
     - name: Checkout Repository
@@ -27,7 +27,7 @@ jobs:
         FORMULA_PATH=$(brew --repository local/gpac)/Formula/gpac.rb
         mkdir -p $(dirname $FORMULA_PATH)
 
-        # 3. GPAC 2.4.0 Formülü (FFmpeg bağımlılığı kaldırılmış sürüm)
+        # 3. GPAC 2.4.0 Formülü (FFmpeg uyumsuzluğunu aşmak için devre dışı bırakıldı)
         cat << 'EOF' > $FORMULA_PATH
         class Gpac < Formula
           desc "Multimedia framework for interactive and spatio-temporal content"
@@ -40,8 +40,6 @@ jobs:
           depends_on "openssl@3"
 
           def install
-            # FFmpeg hatalarını önlemek için --use-ffmpeg=no kullanıyoruz.
-            # Bu durum Subler'ın MP4/WebVTT işleme yeteneğini etkilemez.
             args = %W[
               --prefix=#{prefix}
               --mandir=#{man}
@@ -50,7 +48,6 @@ jobs:
               --disable-pulseaudio
               --use-ffmpeg=no
             ]
-            
             system "./configure", *args
             system "make"
             system "make", "install"
@@ -60,14 +57,22 @@ jobs:
 
         # 4. GPAC'i derleyerek kur
         brew install --build-from-source local/gpac/gpac
-        
-        # 5. Sabitle ve doğrula
         brew pin gpac
         MP4Box -version
+
+    - name: Fix Swift 6 Retroactive Attribute for Xcode 15.4
+      run: |
+        # Xcode 15.4'ün tanımadığı @retroactive ifadesini koddan temizler
+        FILE_PATH="MP42Foundation/MP42/SampleDescription.swift"
+        if [ -f "$FILE_PATH" ]; then
+          echo "Düzeltiliyor: $FILE_PATH"
+          sed -i '' 's/@retroactive //g' "$FILE_PATH"
+        fi
 
     - name: Build Subler with Ad-Hoc Signing
       run: |
         # Subler Derleme Süreci
+        # SYMROOT dizinini mevcut çalışma alanına çekiyoruz
         xcodebuild clean build \
           -project Subler.xcodeproj \
           -scheme Subler \
@@ -81,6 +86,7 @@ jobs:
     - name: Package Application
       run: |
         cd build/Release
+        # Uygulamayı zip olarak paketle
         ditto -c -k --sequesterRsrc --keepParent Subler.app Subler-Custom-Build.zip
 
     - name: Upload Artifact
