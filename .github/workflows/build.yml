@@ -10,24 +10,55 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Subler
         uses: actions/checkout@v4
 
-      - name: Build
+      - name: Checkout MP42Foundation
+        uses: actions/checkout@v4
+        with:
+          repository: SublerApp/MP42Foundation
+          path: MP42Foundation
+
+      - name: Build MP42Foundation
+        run: |
+          xcodebuild \
+          -project MP42Foundation/MP42Foundation.xcodeproj \
+          -scheme MP42Foundation \
+          -configuration Release \
+          -derivedDataPath build \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO
+
+      - name: Copy Framework
+        run: |
+          mkdir -p Frameworks
+          cp -R build/Build/Products/Release/MP42Foundation.framework Frameworks/
+
+      - name: Build Subler
         run: |
           xcodebuild \
           -project Subler.xcodeproj \
           -scheme Subler \
           -configuration Release \
-          -derivedDataPath build
+          -derivedDataPath build \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO
 
-      - name: Package
+      - name: Prepare Artifact
         run: |
           mkdir artifact
           cp -R build/Build/Products/Release/Subler.app artifact/
 
-      - name: Upload
+      - name: Create DMG
+        run: |
+          hdiutil create -volname Subler \
+          -srcfolder artifact/Subler.app \
+          -ov -format UDZO Subler.dmg
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Subler
-          path: artifact
+          path: |
+            Subler.dmg
+            artifact
