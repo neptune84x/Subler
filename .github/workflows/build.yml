@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-13
+    runs-on: macos-latest
 
     steps:
       - name: Checkout Subler
@@ -24,27 +24,22 @@ jobs:
 
       - name: Create Workspace
         run: |
-          cat > Subler.xcworkspace <<'EOF'
+          mkdir Subler.xcworkspace
+          cat > Subler.xcworkspace/contents.xcworkspacedata << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
-          <Workspace
-             version = "1.0">
-             <FileRef
-                location = "group:Subler.xcodeproj">
-             </FileRef>
-             <FileRef
-                location = "group:MP42Foundation/MP42Foundation.xcodeproj">
-             </FileRef>
+          <Workspace version="1.0">
+            <FileRef location="group:Subler.xcodeproj"></FileRef>
+            <FileRef location="group:MP42Foundation/MP42Foundation.xcodeproj"></FileRef>
           </Workspace>
           EOF
 
-      - name: Build
+      - name: Build Subler
         run: |
           xcodebuild \
           -workspace Subler.xcworkspace \
           -scheme Subler \
           -configuration Release \
-          -destination 'platform=macOS,arch=x86_64' \
-          ARCHS=x86_64 \
+          -destination 'platform=macOS' \
           ONLY_ACTIVE_ARCH=YES \
           BUILD_LIBRARY_FOR_DISTRIBUTION=NO \
           SWIFT_STRICT_CONCURRENCY=off \
