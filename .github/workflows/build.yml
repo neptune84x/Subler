@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-runs-on: macos-14 # Xcode 15.4 ve Apple Silicon için ideal
+    runs-on: macos-14 # Yazım hatası düzeltildi
 
     steps:
     - name: Checkout Repository
@@ -27,7 +27,7 @@ jobs:
         FORMULA_PATH=$(brew --repository local/gpac)/Formula/gpac.rb
         mkdir -p $(dirname $FORMULA_PATH)
 
-        # 3. GPAC 2.4.0 Formülü (FFmpeg uyumsuzluğunu aşmak için devre dışı bırakıldı)
+        # 3. GPAC 2.4.0 Formülü (Uyumsuzlukları aşmak için optimize edildi)
         cat << 'EOF' > $FORMULA_PATH
         class Gpac < Formula
           desc "Multimedia framework for interactive and spatio-temporal content"
@@ -62,7 +62,7 @@ jobs:
 
     - name: Fix Swift 6 Retroactive Attribute for Xcode 15.4
       run: |
-        # Xcode 15.4'ün tanımadığı @retroactive ifadesini koddan temizler
+        # Xcode 15.4 (Swift 5.10) uyumluluğu için @retroactive temizliği
         FILE_PATH="MP42Foundation/MP42/SampleDescription.swift"
         if [ -f "$FILE_PATH" ]; then
           echo "Düzeltiliyor: $FILE_PATH"
@@ -72,7 +72,6 @@ jobs:
     - name: Build Subler with Ad-Hoc Signing
       run: |
         # Subler Derleme Süreci
-        # SYMROOT dizinini mevcut çalışma alanına çekiyoruz
         xcodebuild clean build \
           -project Subler.xcodeproj \
           -scheme Subler \
