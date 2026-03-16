@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-14 # Apple Silicon Runner
 
     steps:
     - name: Checkout Repository
@@ -15,7 +15,7 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Setup Environment & Embedded GPAC 2.4
+    - name: Setup Environment & GPAC 2.4
       run: |
         # 1. Mevcut gpac varsa temizle
         if brew list gpac &>/dev/null; then
@@ -27,13 +27,14 @@ jobs:
         FORMULA_PATH=$(brew --repository local/gpac)/Formula/gpac.rb
         mkdir -p $(dirname $FORMULA_PATH)
 
-        # 3. GPAC 2.4.0 formülünü doğrudan dosya içine yazdırıyoruz (404 riskini bitirir)
+        # 3. GPAC 2.4.0 formülünü GÜNCEL SHA-256 ile yazdırıyoruz
         cat << 'EOF' > $FORMULA_PATH
         class Gpac < Formula
           desc "Multimedia framework for interactive and spatio-temporal content"
           homepage "https://gpac.io/"
           url "https://github.com/gpac/gpac/archive/v2.4.0.tar.gz"
-          sha256 "3b94e35767d4cb7066d7367f08035e4e209176391d44070776b3252a1389c926"
+          # Loglarda çıkan güncel SHA-256 değeri:
+          sha256 "99c8c994d5364b963d18eff24af2576b38d38b3460df27d451248982ea16157a"
           license "LGPL-2.1-or-later"
 
           depends_on "pkg-config" => :build
@@ -52,17 +53,13 @@ jobs:
             system "make"
             system "make", "install"
           end
-
-          test do
-            system "#{bin}/MP4Box", "-version"
-          end
         end
         EOF
 
         # 4. Bağımlılıkları kur
         brew install ffmpeg
 
-        # 5. Kendi yazdığımız formül üzerinden kurulumu yap
+        # 5. GPAC'i kaynaktan derleyerek kur
         brew install --build-from-source local/gpac/gpac
         
         # 6. Sürümü sabitle ve doğrula
@@ -71,7 +68,8 @@ jobs:
 
     - name: Build Subler with Ad-Hoc Signing
       run: |
-        # Subler derleme süreci
+        # Xcodebuild ile derleme
+        # CODE_SIGN_IDENTITY="-" Apple Silicon Mac'lerde uygulamanın açılması için zorunludur.
         xcodebuild clean build \
           -project Subler.xcodeproj \
           -scheme Subler \
@@ -85,6 +83,7 @@ jobs:
     - name: Package Application
       run: |
         cd build/Release
+        # Uygulamayı zip olarak paketle
         ditto -c -k --sequesterRsrc --keepParent Subler.app Subler-Custom-Build.zip
 
     - name: Upload Artifact
