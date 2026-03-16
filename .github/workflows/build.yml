@@ -1,98 +1,94 @@
-name: Build Custom Subler
+name: Subler Build (GPAC 2.4 & arm64)
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: macos-14
+    permissions:
+      contents: write
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
 
-    - name: Setup Environment & GPAC 2.4
-      run: |
-        # 1. Temizlik
-        if brew list gpac &>/dev/null; then
-          brew uninstall --force gpac
-        fi
+      - name: GPAC 2.4.0 Kurulumu (Apple Silicon)
+        run: |
+          # Mevcut GPAC varsa kaldır
+          if brew list gpac &>/dev/null; then
+            brew uninstall --force gpac
+          fi
 
-        # 2. Yerel Homebrew tap oluştur
-        brew tap-new local/gpac
-        FORMULA_PATH=$(brew --repository local/gpac)/Formula/gpac.rb
-        mkdir -p $(dirname $FORMULA_PATH)
+          # Yerel tap oluştur ve formülü yaz
+          brew tap-new local/gpac
+          FORMULA_PATH=$(brew --repository local/gpac)/Formula/gpac.rb
+          mkdir -p $(dirname $FORMULA_PATH)
 
-        # 3. GPAC 2.4.0 Formülü (Uyumsuzlukları aşmak için optimize edildi)
-        cat << 'EOF' > $FORMULA_PATH
-        class Gpac < Formula
-          desc "Multimedia framework for interactive and spatio-temporal content"
-          homepage "https://gpac.io/"
-          url "https://github.com/gpac/gpac/archive/v2.4.0.tar.gz"
-          sha256 "99c8c994d5364b963d18eff24af2576b38d38b3460df27d451248982ea16157a"
-          license "LGPL-2.1-or-later"
+          cat << 'EOF' > $FORMULA_PATH
+          class Gpac < Formula
+            desc "Multimedia framework for interactive and spatio-temporal content"
+            homepage "https://gpac.io/"
+            url "https://github.com/gpac/gpac/archive/v2.4.0.tar.gz"
+            sha256 "99c8c994d5364b963d18eff24af2576b38d38b3460df27d451248982ea16157a"
+            license "LGPL-2.1-or-later"
 
-          depends_on "pkg-config" => :build
-          depends_on "openssl@3"
+            depends_on "pkg-config" => :build
+            depends_on "openssl@3"
 
-          def install
-            args = %W[
-              --prefix=#{prefix}
-              --mandir=#{man}
-              --disable-alsa
-              --disable-jack
-              --disable-pulseaudio
-              --use-ffmpeg=no
-            ]
-            system "./configure", *args
-            system "make"
-            system "make", "install"
+            def install
+              args = %W[
+                --prefix=#{prefix}
+                --mandir=#{man}
+                --disable-alsa
+                --disable-jack
+                --disable-pulseaudio
+                --use-ffmpeg=no
+              ]
+              system "./configure", *args
+              system "make"
+              system "make", "install"
+            end
           end
-        end
-        EOF
+          EOF
 
-        # 4. GPAC'i derleyerek kur
-        brew install --build-from-source local/gpac/gpac
-        brew pin gpac
-        MP4Box -version
+          # Kaynaktan derle ve sürümü sabitle
+          brew install --build-from-source local/gpac/gpac
+          brew pin gpac
+          MP4Box -version
 
-    - name: Fix Swift 6 Retroactive Attributes Globally
-      run: |
-        # Xcode 15.4'ün tanımadığı @retroactive ifadesini TÜM projeden temizler
-        # Hem ana projede hem de MP42Foundation submodule içindeki hataları çözer
-        echo "Swift dosyaları taranıyor ve @retroactive ifadeleri temizleniyor..."
-        find . -name "*.swift" -exec sed -i '' 's/@retroactive //g' {} +
+      - name: Swift Kod Temizliği (@retroactive Fix)
+        run: |
+          echo "Xcode 15.4 uyumluluğu için @retroactive ifadeleri temizleniyor..."
+          find . -name "*.swift" -exec sed -i '' 's/@retroactive //g' {} +
 
-    - name: Build Subler with Ad-Hoc Signing
-      run: |
-        # Subler Derleme Süreci
-        xcodebuild clean build \
-          -project Subler.xcodeproj \
-          -scheme Subler \
-          -configuration Release \
-          -arch arm64 \
-          SYMROOT="$(pwd)/build" \
-          CODE_SIGN_IDENTITY="-" \
-          CODE_SIGNING_REQUIRED=YES \
-          CODE_SIGNING_ALLOWED=YES
+      - name: Subler Derleme (Release)
+        run: |
+          # build klasörünü oluştur
+          mkdir -p build
+          
+          xcodebuild clean build \
+            -project Subler.xcodeproj \
+            -scheme Subler \
+            -configuration Release \
+            -arch arm64 \
+            SYMROOT="$(pwd)/build" \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES
 
-    - name: Package Application
-      run: |
-        cd build/Release
-        # Uygulamayı zip olarak paketle
-        if [ -d "Subler.app" ]; then
-          ditto -c -k --sequesterRsrc --keepParent Subler.app Subler-Custom-Build.zip
-        else
-          echo "Hata: Subler.app bulunamadı!"
-          exit 1
-        fi
+      - name: Uygulamayı Paketle
+        run: |
+          cd build/Release
+          zip -r Subler_arm64.zip Subler.app
 
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: Subler-Web-Output
-        path: build/Release/Subler-Custom-Build.zip
+      - name: Artifact Olarak Yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Subler-GPAC2.4-arm64
+          path: build/Release/Subler_arm64.zip
