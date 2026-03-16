@@ -1,0 +1,56 @@
+name: Build Custom Subler
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Manuel tetikleme seçeneği
+
+jobs:
+  build:
+    runs-on: macos-14 # macOS Apple Silicon runner kullanıyoruz
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive # Subler'ın derlenmesi için gereken alt modülleri (Sparkle vb.) çeker
+
+    - name: Setup Environment & GPAC 2.4
+      run: |
+        # Ortam hazırlığı: gpac yine brew ile kuruluyor ve 2.4 sürümüne zorlanıyor.
+        brew update
+        
+        # Spesifik sürüm kurulumu ve zorlama (pin)
+        # (Homebrew core üzerinden sürüm yakalama mantığı ile çalıştırılır)
+        brew install gpac@2.4 || brew install gpac
+        brew pin gpac
+        
+        # Kurulumu doğrula
+        gpac -version
+
+    - name: Build Subler with Ad-Hoc Signing
+      run: |
+        # Ücretsiz geliştirici hesabı kısıtlamalarına takılmamak ve uygulamanın 
+        # hatasız derlenmesi için CODE_SIGN_IDENTITY="-" ile ad-hoc imzalama yapıyoruz.
+        xcodebuild clean build \
+          -project Subler.xcodeproj \
+          -scheme Subler \
+          -configuration Release \
+          -arch arm64 \
+          SYMROOT="$(pwd)/build" \
+          CODE_SIGN_IDENTITY="-" \
+          CODE_SIGNING_REQUIRED=YES \
+          CODE_SIGNING_ALLOWED=YES
+
+    - name: Package Application
+      run: |
+        cd build/Release
+        # Uygulamayı indirirken dosya izinlerinin ve macOS paket yapısının 
+        # bozulmaması için .app klasörünü ditto ile sıkıştırıyoruz.
+        ditto -c -k --sequesterRsrc --keepParent Subler.app Subler.zip
+
+    - name: Upload Compiled Subler Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Subler-Web-Build
+        path: build/Release/Subler.zip
