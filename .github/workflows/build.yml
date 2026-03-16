@@ -1,82 +1,33 @@
-name: Build Subler (Final)
+name: Build Subler
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
 
 jobs:
   build:
-    runs-on: macos-14
-    permissions:
-      contents: write
+    runs-on: macos-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 1
 
-      - name: Install and Pin GPAC 2.4.0
+      - name: Build
         run: |
-          if brew list gpac &>/dev/null; then
-            brew uninstall --force gpac
-          fi
-          
-          brew tap-new local/gpac
-          FORMULA_PATH=$(brew --repository local/gpac)/Formula/gpac.rb
-          mkdir -p $(dirname $FORMULA_PATH)
-          
-          cat << 'EOF' > $FORMULA_PATH
-          class Gpac < Formula
-            desc "Multimedia framework for interactive and spatio-temporal content"
-            homepage "https://gpac.io/"
-            url "https://github.com/gpac/gpac/archive/v2.4.0.tar.gz"
-            sha256 "99c8c994d5364b963d18eff24af2576b38d38b3460df27d451248982ea16157a"
-            license "LGPL-2.1-or-later"
-            depends_on "pkg-config" => :build
-            depends_on "openssl@3"
-            def install
-              args = %W[
-                --prefix=#{prefix}
-                --mandir=#{man}
-                --disable-alsa
-                --disable-jack
-                --disable-pulseaudio
-                --use-ffmpeg=no
-              ]
-              system "./configure", *args
-              system "make"
-              system "make", "install"
-            end
-          end
-          EOF
-          
-          brew install --build-from-source local/gpac/gpac
-          brew pin gpac
-          MP4Box -version
-
-      - name: Fix Swift Retroactive Warnings (Xcode 15.4+)
-        run: |
-          echo "Xcode 15.4+ uyumluluğu için düzenleniyor..."
-          find . -name "*.swift" -exec sed -i '' 's/@retroactive //g' {} +
-
-      - name: Build Subler
-        run: |
-          mkdir -p build
           xcodebuild \
-            -project Subler.xcodeproj \
-            -scheme Subler \
-            -configuration Release \
-            -arch arm64 \
-            -derivedDataPath "$(pwd)/DerivedData" \
-            SYMROOT="$(pwd)/build" \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=YES \
-            CODE_SIGNING_ALLOWED=YES \
-            COMPILER_INDEX_STORE_ENABLE=NO
+          -project Subler.xcodeproj \
+          -scheme Subler \
+          -configuration Release \
+          -derivedDataPath build
 
-      - name: Upload Artifact
+      - name: Package
+        run: |
+          mkdir artifact
+          cp -R build/Build/Products/Release/Subler.app artifact/
+
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: Subler-Build-ARM64
-          path: build/Release/Subler.app
+          name: Subler
+          path: artifact
