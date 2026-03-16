@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14 # Apple Silicon Runner
+    runs-on: macos-14
 
     steps:
     - name: Checkout Repository
@@ -17,23 +17,22 @@ jobs:
 
     - name: Setup Environment & GPAC 2.4
       run: |
-        # 1. Mevcut gpac varsa temizle
+        # 1. Temizlik
         if brew list gpac &>/dev/null; then
           brew uninstall --force gpac
         fi
 
-        # 2. Yerel bir Homebrew tap'i oluştur
+        # 2. Yerel Homebrew tap oluştur
         brew tap-new local/gpac
         FORMULA_PATH=$(brew --repository local/gpac)/Formula/gpac.rb
         mkdir -p $(dirname $FORMULA_PATH)
 
-        # 3. GPAC 2.4.0 formülünü GÜNCEL SHA-256 ile yazdırıyoruz
+        # 3. GPAC 2.4.0 Formülünü 2.4.0 configure parametrelerine göre yazdır
         cat << 'EOF' > $FORMULA_PATH
         class Gpac < Formula
           desc "Multimedia framework for interactive and spatio-temporal content"
           homepage "https://gpac.io/"
           url "https://github.com/gpac/gpac/archive/v2.4.0.tar.gz"
-          # Loglarda çıkan güncel SHA-256 değeri:
           sha256 "99c8c994d5364b963d18eff24af2576b38d38b3460df27d451248982ea16157a"
           license "LGPL-2.1-or-later"
 
@@ -42,13 +41,17 @@ jobs:
           depends_on "openssl@3"
 
           def install
+            # 2.4.0 sürümü için düzeltilmiş configure argümanları
             args = %W[
               --prefix=#{prefix}
               --mandir=#{man}
-              --disable-wx
+              --disable-alsa
+              --disable-jack
               --disable-pulseaudio
-              --use-ffmpeg=yes
             ]
+            
+            # Bu sürümde --use-ffmpeg=yes yerine ffmpeg kütüphaneleri 
+            # pkg-config üzerinden otomatik algılanır.
             system "./configure", *args
             system "make"
             system "make", "install"
@@ -59,17 +62,16 @@ jobs:
         # 4. Bağımlılıkları kur
         brew install ffmpeg
 
-        # 5. GPAC'i kaynaktan derleyerek kur
+        # 5. Kaynaktan derleyerek kur
         brew install --build-from-source local/gpac/gpac
         
-        # 6. Sürümü sabitle ve doğrula
+        # 6. Sabitle ve doğrula
         brew pin gpac
         MP4Box -version
 
     - name: Build Subler with Ad-Hoc Signing
       run: |
-        # Xcodebuild ile derleme
-        # CODE_SIGN_IDENTITY="-" Apple Silicon Mac'lerde uygulamanın açılması için zorunludur.
+        # Subler Derleme
         xcodebuild clean build \
           -project Subler.xcodeproj \
           -scheme Subler \
@@ -83,7 +85,6 @@ jobs:
     - name: Package Application
       run: |
         cd build/Release
-        # Uygulamayı zip olarak paketle
         ditto -c -k --sequesterRsrc --keepParent Subler.app Subler-Custom-Build.zip
 
     - name: Upload Artifact
