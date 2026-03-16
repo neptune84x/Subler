@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-14 # Apple Silicon (M1/M2/M3) Runner
 
     steps:
     - name: Checkout Repository
@@ -17,7 +17,7 @@ jobs:
 
     - name: Setup Environment & GPAC 2.4
       run: |
-        # 1. Mevcut gpac varsa temizle
+        # 1. Temizlik
         if brew list gpac &>/dev/null; then
           brew uninstall --force gpac
         fi
@@ -25,23 +25,26 @@ jobs:
         # 2. Yerel bir Homebrew tap'i oluştur
         brew tap-new local/gpac
         
-        # 3. GPAC 2.4 formülünü doğru URL üzerinden indir (404 hatasını önlemek için)
-        # Not: Eski commitlerde formüller 'Formula/g/' altında değil, doğrudan 'Formula/' altındaydı.
+        # 3. GPAC 2.4.0 formülünü doğru dizin yapısıyla indir
+        # Homebrew 2023 sonrasında /Formula/g/gpac.rb yapısına geçti.
         FORMULA_PATH=$(brew --repository local/gpac)/Formula/gpac.rb
         mkdir -p $(dirname $FORMULA_PATH)
-        curl -L https://raw.githubusercontent.com/Homebrew/homebrew-core/0a3b04c0d028a0503f0b2f671e6205738870313c/Formula/gpac.rb -o $FORMULA_PATH
         
-        # 4. Dosyanın boş veya 404 olmadığını doğrula
+        echo "GPAC Formülü indiriliyor..."
+        curl -L "https://raw.githubusercontent.com/Homebrew/homebrew-core/0a3b04c0d028a0503f0b2f671e6205738870313c/Formula/g/gpac.rb" -o $FORMULA_PATH
+
+        # 4. Dosya içeriğini kontrol et (404 alıp almadığımızı doğrular)
         if grep -q "404: Not Found" "$FORMULA_PATH"; then
-          echo "HATA: Formül dosyası indirilemedi (404). URL kontrol edilmeli."
-          exit 1
+          echo "HATA: Ana URL bulunamadı, alternatif URL deneniyor..."
+          curl -L "https://raw.githubusercontent.com/Homebrew/homebrew-core/0a3b04c0d028a0503f0b2f671e6205738870313c/Formula/gpac.rb" -o $FORMULA_PATH
         fi
         
-        # 5. Bağımlılıkları önceden kur (derleme hızını artırır ve hataları önler)
+        # 5. Bağımlılıkları hazırla
         brew install ffmpeg
 
-        # 6. Yeni oluşturduğumuz yerel tap üzerinden kurulumu yap
-        brew install local/gpac/gpac
+        # 6. Yerel tap üzerinden kurulumu yap
+        # --build-from-source bayrağı Apple Silicon uyumluluğunu garanti eder
+        brew install --build-from-source local/gpac/gpac
         
         # 7. Sürümü sabitle ve doğrula
         brew pin gpac
@@ -49,7 +52,8 @@ jobs:
 
     - name: Build Subler with Ad-Hoc Signing
       run: |
-        # Apple Silicon için Ad-Hoc imzalama ile derleme
+        # Xcodebuild süreci
+        # CODE_SIGN_IDENTITY="-" yerel cihazlarda çalışması için Ad-Hoc imzalama yapar.
         xcodebuild clean build \
           -project Subler.xcodeproj \
           -scheme Subler \
@@ -63,7 +67,7 @@ jobs:
     - name: Package Application
       run: |
         cd build/Release
-        # macOS paket yapısını koruyarak sıkıştır
+        # Uygulama paketini koruyarak sıkıştır
         ditto -c -k --sequesterRsrc --keepParent Subler.app Subler-Custom-Build.zip
 
     - name: Upload Artifact
