@@ -7,32 +7,35 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-14 # macOS Apple Silicon runner
 
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
       with:
-        submodules: recursive # Alt modülleri (Sparkle vb.) eksiksiz çeker
+        submodules: recursive
 
     - name: Setup Environment & GPAC 2.4
       run: |
-        # Mevcut gpac varsa temizle
-        brew uninstall --ignore-dependencies gpac || true
+        # 1. Hata almamak için paket kontrolü yaparak temizlik yapıyoruz
+        if brew list gpac &>/dev/null; then
+          brew uninstall --force gpac
+        fi
+
+        # 2. GPAC 2.4.0 formülünü yerel bir dosyaya indiriyoruz
+        # Bu yöntem Homebrew'un URL kısıtlamasını aşmamızı sağlar
+        curl -L https://raw.githubusercontent.com/Homebrew/homebrew-core/0a3b04c0d028a0503f0b2f671e6205738870313c/Formula/g/gpac.rb -o gpac.rb
         
-        # GPAC 2.4.0 sürümünü doğrudan Homebrew geçmişindeki ilgili commit üzerinden yükle
-        brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/0a3b04c0d028a0503f0b2f671e6205738870313c/Formula/g/gpac.rb
+        # 3. Yerel formül dosyasından kurulum yapıyoruz
+        brew install --formula ./gpac.rb
         
-        # Sürümü sabitle (otomatik güncellenmesini engelle)
+        # 4. Sürümü sabitliyoruz ve doğruluyoruz
         brew pin gpac
-        
-        # Sürümü doğrula (MP4Box komutu 2.4 sürümünde daha sağlıklı çıktı verir)
         MP4Box -version
 
     - name: Build Subler with Ad-Hoc Signing
       run: |
-        # xcodebuild ile derleme süreci. 
-        # CODE_SIGN_IDENTITY="-" ifadesi yerel (Ad-Hoc) imzalama sağlar.
+        # Ad-Hoc imzalama ile Apple Silicon mimarisinde derleme
         xcodebuild clean build \
           -project Subler.xcodeproj \
           -scheme Subler \
@@ -46,7 +49,7 @@ jobs:
     - name: Package Application
       run: |
         cd build/Release
-        # Uygulama yapısını bozmadan sıkıştırır
+        # Paket yapısını bozmadan sıkıştırıyoruz
         ditto -c -k --sequesterRsrc --keepParent Subler.app Subler-Custom-Build.zip
 
     - name: Upload Artifact
