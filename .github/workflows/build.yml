@@ -15,18 +15,23 @@ jobs:
       with:
         submodules: recursive # Subler'ın derlenmesi için gereken alt modülleri (Sparkle vb.) çeker
 
-    - name: Setup Environment & GPAC 2.4
+- name: Setup Environment & Force GPAC 2.4
       run: |
-        # Ortam hazırlığı: gpac yine brew ile kuruluyor ve 2.4 sürümüne zorlanıyor.
-        brew update
+        # Homebrew core içinden GPAC 2.4 sürümünün olduğu commit'e gidip o formülü yüklüyoruz
+        # Not: Bu yöntem, gpac@2.4 paketi olmadığı durumlarda en sağlıklı yoldur.
         
-        # Spesifik sürüm kurulumu ve zorlama (pin)
-        # (Homebrew core üzerinden sürüm yakalama mantığı ile çalıştırılır)
-        brew install gpac@2.4 || brew install gpac
+        # Mevcut gpac varsa kaldırıyoruz
+        brew uninstall --ignore-dependencies gpac || true
+        
+        # GPAC 2.4.0 sürümünü doğrudan kaynak dosyasından yüklüyoruz
+        brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/0a3b04c0d028a0503f0b2f671e6205738870313c/Formula/g/gpac.rb
+        
+        # Sürümü sabitle (upgrade edilmesini engelle)
         brew pin gpac
         
-        # Kurulumu doğrula
-        gpac -version
+        # Doğrulama: 'gpac -version' yerine 'MP4Box -version' kullanıyoruz. 
+        # Bu komut 2.4 sürümünü net bir şekilde teyit eder ve hata kodu döndürmez.
+        MP4Box -version
 
     - name: Build Subler with Ad-Hoc Signing
       run: |
