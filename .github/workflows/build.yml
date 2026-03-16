@@ -27,7 +27,7 @@ jobs:
         FORMULA_PATH=$(brew --repository local/gpac)/Formula/gpac.rb
         mkdir -p $(dirname $FORMULA_PATH)
 
-        # 3. GPAC 2.4.0 Formülünü 2.4.0 configure parametrelerine göre yazdır
+        # 3. GPAC 2.4.0 Formülü (FFmpeg bağımlılığı kaldırılmış sürüm)
         cat << 'EOF' > $FORMULA_PATH
         class Gpac < Formula
           desc "Multimedia framework for interactive and spatio-temporal content"
@@ -37,21 +37,20 @@ jobs:
           license "LGPL-2.1-or-later"
 
           depends_on "pkg-config" => :build
-          depends_on "ffmpeg"
           depends_on "openssl@3"
 
           def install
-            # 2.4.0 sürümü için düzeltilmiş configure argümanları
+            # FFmpeg hatalarını önlemek için --use-ffmpeg=no kullanıyoruz.
+            # Bu durum Subler'ın MP4/WebVTT işleme yeteneğini etkilemez.
             args = %W[
               --prefix=#{prefix}
               --mandir=#{man}
               --disable-alsa
               --disable-jack
               --disable-pulseaudio
+              --use-ffmpeg=no
             ]
             
-            # Bu sürümde --use-ffmpeg=yes yerine ffmpeg kütüphaneleri 
-            # pkg-config üzerinden otomatik algılanır.
             system "./configure", *args
             system "make"
             system "make", "install"
@@ -59,19 +58,16 @@ jobs:
         end
         EOF
 
-        # 4. Bağımlılıkları kur
-        brew install ffmpeg
-
-        # 5. Kaynaktan derleyerek kur
+        # 4. GPAC'i derleyerek kur
         brew install --build-from-source local/gpac/gpac
         
-        # 6. Sabitle ve doğrula
+        # 5. Sabitle ve doğrula
         brew pin gpac
         MP4Box -version
 
     - name: Build Subler with Ad-Hoc Signing
       run: |
-        # Subler Derleme
+        # Subler Derleme Süreci
         xcodebuild clean build \
           -project Subler.xcodeproj \
           -scheme Subler \
