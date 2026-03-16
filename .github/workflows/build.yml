@@ -3,40 +3,36 @@ name: Build Custom Subler
 on:
   push:
     branches: [ "main", "master" ]
-  workflow_dispatch: # Manuel tetikleme seçeneği
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-14 # macOS Apple Silicon runner kullanıyoruz
+    runs-on: macos-14
 
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
       with:
-        submodules: recursive # Subler'ın derlenmesi için gereken alt modülleri (Sparkle vb.) çeker
+        submodules: recursive # Alt modülleri (Sparkle vb.) eksiksiz çeker
 
-- name: Setup Environment & Force GPAC 2.4
+    - name: Setup Environment & GPAC 2.4
       run: |
-        # Homebrew core içinden GPAC 2.4 sürümünün olduğu commit'e gidip o formülü yüklüyoruz
-        # Not: Bu yöntem, gpac@2.4 paketi olmadığı durumlarda en sağlıklı yoldur.
-        
-        # Mevcut gpac varsa kaldırıyoruz
+        # Mevcut gpac varsa temizle
         brew uninstall --ignore-dependencies gpac || true
         
-        # GPAC 2.4.0 sürümünü doğrudan kaynak dosyasından yüklüyoruz
+        # GPAC 2.4.0 sürümünü doğrudan Homebrew geçmişindeki ilgili commit üzerinden yükle
         brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/0a3b04c0d028a0503f0b2f671e6205738870313c/Formula/g/gpac.rb
         
-        # Sürümü sabitle (upgrade edilmesini engelle)
+        # Sürümü sabitle (otomatik güncellenmesini engelle)
         brew pin gpac
         
-        # Doğrulama: 'gpac -version' yerine 'MP4Box -version' kullanıyoruz. 
-        # Bu komut 2.4 sürümünü net bir şekilde teyit eder ve hata kodu döndürmez.
+        # Sürümü doğrula (MP4Box komutu 2.4 sürümünde daha sağlıklı çıktı verir)
         MP4Box -version
 
     - name: Build Subler with Ad-Hoc Signing
       run: |
-        # Ücretsiz geliştirici hesabı kısıtlamalarına takılmamak ve uygulamanın 
-        # hatasız derlenmesi için CODE_SIGN_IDENTITY="-" ile ad-hoc imzalama yapıyoruz.
+        # xcodebuild ile derleme süreci. 
+        # CODE_SIGN_IDENTITY="-" ifadesi yerel (Ad-Hoc) imzalama sağlar.
         xcodebuild clean build \
           -project Subler.xcodeproj \
           -scheme Subler \
@@ -50,12 +46,11 @@ jobs:
     - name: Package Application
       run: |
         cd build/Release
-        # Uygulamayı indirirken dosya izinlerinin ve macOS paket yapısının 
-        # bozulmaması için .app klasörünü ditto ile sıkıştırıyoruz.
-        ditto -c -k --sequesterRsrc --keepParent Subler.app Subler.zip
+        # Uygulama yapısını bozmadan sıkıştırır
+        ditto -c -k --sequesterRsrc --keepParent Subler.app Subler-Custom-Build.zip
 
-    - name: Upload Compiled Subler Artifact
+    - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Subler-Web-Build
-        path: build/Release/Subler.zip
+        name: Subler-Web-Output
+        path: build/Release/Subler-Custom-Build.zip
