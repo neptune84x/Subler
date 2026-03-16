@@ -1,8 +1,6 @@
-name: Subler Build (GPAC 2.4 & arm64)
+name: Build Subler (Final)
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -18,16 +16,16 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
-      - name: GPAC 2.4.0 Kurulumu (Apple Silicon)
+      - name: Install and Pin GPAC 2.4.0
         run: |
           if brew list gpac &>/dev/null; then
             brew uninstall --force gpac
           fi
-
+          
           brew tap-new local/gpac
           FORMULA_PATH=$(brew --repository local/gpac)/Formula/gpac.rb
           mkdir -p $(dirname $FORMULA_PATH)
-
+          
           cat << 'EOF' > $FORMULA_PATH
           class Gpac < Formula
             desc "Multimedia framework for interactive and spatio-temporal content"
@@ -52,20 +50,19 @@ jobs:
             end
           end
           EOF
-
+          
           brew install --build-from-source local/gpac/gpac
           brew pin gpac
           MP4Box -version
 
-      - name: Swift Kod Temizliği (@retroactive Fix)
+      - name: Fix Swift Retroactive Warnings (Xcode 15.4+)
         run: |
           echo "Xcode 15.4+ uyumluluğu için düzenleniyor..."
           find . -name "*.swift" -exec sed -i '' 's/@retroactive //g' {} +
 
-      - name: Subler Derleme (Release)
+      - name: Build Subler
         run: |
           mkdir -p build
-          # -derivedDataPath ekleyerek paketlerin ve build dosyalarının çakışmasını önlüyoruz
           xcodebuild \
             -project Subler.xcodeproj \
             -scheme Subler \
@@ -78,20 +75,8 @@ jobs:
             CODE_SIGNING_ALLOWED=YES \
             COMPILER_INDEX_STORE_ENABLE=NO
 
-      - name: Uygulamayı Paketle
-        run: |
-          # SYMROOT kullanımı nedeniyle dosya genellikle build/Release içinde oluşur
-          cd build/Release
-          if [ -d "Subler.app" ]; then
-            zip -r Subler_arm64.zip Subler.app
-          else
-            echo "HATA: Subler.app bulunamadı! Mevcut dosyalar:"
-            ls -R ../
-            exit 1
-          fi
-
-      - name: Artifact Olarak Yükle
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Subler-GPAC2.4-arm64
-          path: build/Release/Subler_arm64.zip
+          name: Subler-Build-ARM64
+          path: build/Release/Subler.app
