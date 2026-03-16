@@ -71,8 +71,7 @@ jobs:
         run: |
           # build klasörünü oluştur
           mkdir -p build
-          
-          xcodebuild clean build \
+
             -project Subler.xcodeproj \
             -scheme Subler \
             -configuration Release \
