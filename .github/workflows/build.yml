@@ -33,19 +33,21 @@ jobs:
           </Workspace>
           EOF
 
-      - name: Build Subler
+      - name: Build
         run: |
           xcodebuild \
           -workspace Subler.xcworkspace \
           -scheme Subler \
           -configuration Release \
-          -destination 'platform=macOS' \
+          -destination 'platform=macOS,arch=x86_64' \
+          ARCHS=x86_64 \
+          EXCLUDED_ARCHS=arm64 \
           ONLY_ACTIVE_ARCH=YES \
           BUILD_LIBRARY_FOR_DISTRIBUTION=NO \
           SWIFT_STRICT_CONCURRENCY=off \
-          CODE_SIGN_IDENTITY="" \
-          CODE_SIGNING_REQUIRED=NO \
           CODE_SIGNING_ALLOWED=NO \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGN_IDENTITY="" \
           -derivedDataPath build
 
       - name: Prepare App
@@ -55,7 +57,8 @@ jobs:
 
       - name: Create DMG
         run: |
-          hdiutil create -volname Subler \
+          hdiutil create \
+          -volname Subler \
           -srcfolder artifact/Subler.app \
           -ov -format UDZO Subler.dmg
 
