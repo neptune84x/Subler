@@ -7,46 +7,29 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-14
 
     steps:
-      - name: Checkout Subler
-        uses: actions/checkout@v4
-
-      - name: Checkout MP42Foundation
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          repository: SublerApp/MP42Foundation
-          path: MP42Foundation
+          submodules: recursive
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: Select Xcode 15
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
 
-      - name: Create Workspace
-        run: |
-          mkdir Subler.xcworkspace
-          cat > Subler.xcworkspace/contents.xcworkspacedata << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <Workspace version="1.0">
-            <FileRef location="group:Subler.xcodeproj"/>
-            <FileRef location="group:MP42Foundation/MP42Foundation.xcodeproj"/>
-          </Workspace>
-          EOF
+      - name: Show Xcode version
+        run: xcodebuild -version
 
-      - name: Build
+      - name: Build Subler
         run: |
           xcodebuild \
-          -workspace Subler.xcworkspace \
+          -project Subler.xcodeproj \
           -scheme Subler \
           -configuration Release \
           -destination 'platform=macOS,arch=x86_64' \
           ARCHS=x86_64 \
-          EXCLUDED_ARCHS=arm64 \
           ONLY_ACTIVE_ARCH=YES \
-          SWIFT_VERSION=5 \
-          SWIFT_STRICT_CONCURRENCY=off \
-          OTHER_SWIFT_FLAGS="-Xfrontend -disable-availability-checking" \
-          BUILD_LIBRARY_FOR_DISTRIBUTION=NO \
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGN_IDENTITY="" \
