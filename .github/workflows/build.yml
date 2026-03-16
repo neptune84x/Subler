@@ -28,8 +28,8 @@ jobs:
           cat > Subler.xcworkspace/contents.xcworkspacedata << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <Workspace version="1.0">
-            <FileRef location="group:Subler.xcodeproj"></FileRef>
-            <FileRef location="group:MP42Foundation/MP42Foundation.xcodeproj"></FileRef>
+            <FileRef location="group:Subler.xcodeproj"/>
+            <FileRef location="group:MP42Foundation/MP42Foundation.xcodeproj"/>
           </Workspace>
           EOF
 
@@ -43,8 +43,10 @@ jobs:
           ARCHS=x86_64 \
           EXCLUDED_ARCHS=arm64 \
           ONLY_ACTIVE_ARCH=YES \
-          BUILD_LIBRARY_FOR_DISTRIBUTION=NO \
+          SWIFT_VERSION=5 \
           SWIFT_STRICT_CONCURRENCY=off \
+          OTHER_SWIFT_FLAGS="-Xfrontend -disable-availability-checking" \
+          BUILD_LIBRARY_FOR_DISTRIBUTION=NO \
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGN_IDENTITY="" \
